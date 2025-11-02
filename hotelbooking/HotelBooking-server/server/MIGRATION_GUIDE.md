@@ -1,14 +1,4 @@
-# MongoDB to PostgreSQL Migration Guide
-
-This project has been migrated from MongoDB (with Mongoose) to PostgreSQL (with Prisma).
-
-## Migration Summary
-
-### What Changed:
-- **Database**: MongoDB → PostgreSQL (Supabase)
-- **Database Client**: Mongoose → Supabase Client
-- **File Storage**: Cloudinary → Supabase Storage
-- **Dependencies**: Removed MongoDB/Mongoose/Cloudinary/Prisma, Added Supabase Client
+ary/Prisma, Added Supabase Client
 
 ### Key Changes Made:
 
