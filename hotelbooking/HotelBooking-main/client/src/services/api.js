@@ -136,7 +136,7 @@ export const getAllRooms = async (filters = {}) => {
       .from('rooms')
       .select(`
         *,
-        hotels(name, address, city)
+        hotels(id, name, address, city)
       `)
     
     // Apply filters
@@ -448,39 +448,74 @@ export const uploadMultipleImages = async (files, bucket = 'room-images') => {
 }
 
 // ============ SEARCH FUNCTIONS ============
-export const searchRooms = async (searchTerm, filters = {}) => {
+export const searchRooms = async (searchParams = {}) => {
   try {
     let query = supabase
       .from('rooms')
       .select(`
         *,
-        hotels(name, address, city)
+        hotels!inner(id, name, address, city)
       `)
+      .eq('is_available', true);
     
-    // Search in room type or hotel name/city
-    if (searchTerm) {
-      query = query.or(`room_type.ilike.%${searchTerm}%,hotels.name.ilike.%${searchTerm}%,hotels.city.ilike.%${searchTerm}%`)
+    // BẮT BUỘC phải có city để search
+    if (!searchParams.city && !searchParams.searchTerm) {
+      // Nếu không có gì để search, trả về empty array
+      return { 
+        success: true, 
+        data: [], 
+        count: 0 
+      };
+    }
+    
+    // Tìm kiếm theo city (ƯU TIÊN)
+    if (searchParams.city) {
+      // Dùng ilike để search không phân biệt hoa thường
+      query = query.ilike('hotels.city', `%${searchParams.city}%`);
+    }
+    
+    // Tìm kiếm theo keyword chung (nếu không có city)
+    else if (searchParams.searchTerm) {
+      const term = searchParams.searchTerm.toLowerCase();
+      query = query.or(
+        `room_type.ilike.%${term}%,hotels.name.ilike.%${term}%,hotels.city.ilike.%${term}%,hotels.address.ilike.%${term}%`
+      );
     }
     
     // Apply additional filters
-    if (filters.isAvailable !== undefined) {
-      query = query.eq('is_available', filters.isAvailable)
+    if (searchParams.minPrice) {
+      query = query.gte('price_per_night', parseFloat(searchParams.minPrice));
     }
     
-    if (filters.minPrice) {
-      query = query.gte('price_per_night', filters.minPrice)
+    if (searchParams.maxPrice) {
+      query = query.lte('price_per_night', parseFloat(searchParams.maxPrice));
     }
     
-    if (filters.maxPrice) {
-      query = query.lte('price_per_night', filters.maxPrice)
+    if (searchParams.roomType) {
+      query = query.eq('room_type', searchParams.roomType);
     }
     
-    const { data, error } = await query
+    // Sort
+    query = query.order('price_per_night', { ascending: true });
     
-    if (error) throw error
-    return { success: true, data }
+    const { data, error } = await query;
+    
+    if (error) throw error;
+    
+    console.log('Search results:', data); // Debug log
+    
+    return { 
+      success: true, 
+      data: data || [], 
+      count: data ? data.length : 0 
+    };
   } catch (error) {
-    console.error('Error searching rooms:', error)
-    return { success: false, error: error.message }
+    console.error('Error searching rooms:', error);
+    return { 
+      success: false, 
+      error: error.message, 
+      data: [],
+      count: 0
+    };
   }
-}
+};
